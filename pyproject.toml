@@ -11,8 +11,3 @@ dependencies = [
     "toml>=0.10.2",
     "uvicorn>=0.34.2",
 ]
-
-[api]
-core_folder = "merge/API/core"
-ext_folder = "merge/API/ext"
-timeout = 60
