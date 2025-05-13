@@ -1,13 +1,30 @@
 import sys
 import json
+import toml
 import httpx
+import logging
 from typing import List
+from yaml import dump, safe_load, YAMLError
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.routing import APIRouter
 from fastapi.responses import JSONResponse
 from fastapi import HTTPException, Query
 
+config = toml.load("pyproject.toml")
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.StreamHandler()
+    ]
+)
+
+logger = logging.getLogger("fastapi-logger")
+
+logger.info("Starting SKG-IF specification merge api ...")
 app = FastAPI()
 
 # Mount the static directory
@@ -43,6 +60,7 @@ def merge(org, src, ident):
                 if i < len(src):
                     merge(org[i], src[i], ident + '  ')
 
+
 @apir.get("/")
 def read_root():
     return {"message": "Welcome to the FastAPI app!"}
@@ -52,13 +70,13 @@ def read_root():
 def merge_endpoint(core: str, ext: List[str] = Query(...)):
     try:
         # Fetch and load the core YAML
-        core_response = requests.get(core)
+        core_response = httpx.get(core)
         core_response.raise_for_status()
         core_yaml = safe_load(core_response.text)
 
         # Fetch and load each extension YAML
         for ext_url in ext:
-            ext_response = requests.get(ext_url)
+            ext_response = httpx.get(ext_url)
             ext_response.raise_for_status()
             ext_yaml = safe_load(ext_response.text)
 
@@ -82,11 +100,12 @@ def merge_endpoint(core: str, ext: List[str] = Query(...)):
         # Return the resulting YAML
         return dump(core_yaml, sort_keys=False)
 
-    except requests.exceptions.RequestException as e:
-        raise HTTPException(status_code=400, detail=f"Error fetching YAML: {e}")
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail=f"Error fetching YAML: {e}")
     except YAMLError as e:
         raise HTTPException(status_code=400, detail=f"Error parsing YAML: {e}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {e}")
+
 
 app.include_router(apir)
