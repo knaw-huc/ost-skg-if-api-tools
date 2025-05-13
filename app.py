@@ -1,3 +1,4 @@
+import os
 import sys
 import json
 import toml
@@ -8,10 +9,13 @@ from yaml import dump, safe_load, YAMLError
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.routing import APIRouter
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi import HTTPException, Query
 
-config = toml.load("pyproject.toml")
+config = toml.load("config.toml")
+api_core_folder = config["api"]["core_folder"]
+api_core_fetching_url = config["api"]["core_fetching_url"]
+api_ext_folder = config["api"]["ext_folder"]
 
 # Configure logging
 logging.basicConfig(
@@ -25,13 +29,14 @@ logging.basicConfig(
 logger = logging.getLogger("fastapi-logger")
 
 logger.info("Starting SKG-IF specification merge api ...")
+logger.info(f"configs: {json.dumps(config, indent=2)}")
 app = FastAPI()
 
 # Mount the static directory
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Create a router with a prefix
-apir = APIRouter(prefix="/api")
+apir = APIRouter(prefix="/api/ver")
 
 
 def merge(org, src, ident):
@@ -66,19 +71,49 @@ def read_root():
     return {"message": "Welcome to the FastAPI app!"}
 
 
-@apir.get("/merge")
-def merge_endpoint(core: str, ext: List[str] = Query(...)):
+def fetch_or_load_core_yaml(version_str: str, core_file: str):
+    # Check if the core file exists locally
+    local_core_path = os.path.join(api_core_folder, version_str, core_file)
+    try:
+        with open(local_core_path, 'r') as file:
+            logger.info(f"Loading core file from local path: {local_core_path}")
+            return safe_load(file)
+    except FileNotFoundError:
+        # Fetch the core YAML from the URL
+        url = api_core_fetching_url.format(version=version_str, filename=core_file)
+        logger.info(f"Core file {local_core_path} not found. Fetching from {url}.")
+        response = httpx.get(url)
+        response.raise_for_status()
+        logger.info(f"Fetched core file from {url}.")
+        # Save the fetched file locally
+        os.makedirs(os.path.dirname(local_core_path), exist_ok=True)
+        with open(local_core_path, 'w') as file:
+            file.write(response.text)
+            logger.info(f"Saved core file to local path: {local_core_path}")
+        return safe_load(response.text)
+
+
+@apir.get("/{version_str}/{core_file}")
+def merge_endpoint(version_str: str, core_file: str, ext: List[str] = Query(default=[])):
+    logger.info(f"Received request to merge YAML files for version: {version_str}, core_file: {core_file}, extensions: {ext}")
+
     try:
         # Fetch and load the core YAML
-        core_response = httpx.get(core)
-        core_response.raise_for_status()
-        core_yaml = safe_load(core_response.text)
+        core_yaml = fetch_or_load_core_yaml(version_str, core_file)
+        logger.debug(f"Loaded core YAML: {core_yaml}")
+
+        if not core_yaml or len(ext) == 0:
+            raise HTTPException(status_code=400, detail="Core YAML or extensions not found.")
 
         # Fetch and load each extension YAML
-        for ext_url in ext:
-            ext_response = httpx.get(ext_url)
-            ext_response.raise_for_status()
-            ext_yaml = safe_load(ext_response.text)
+        for ext_file in ext:
+            file_path: str = os.path.join(api_ext_folder, os.path.basename(ext_file))
+            if os.path.isfile(file_path):
+                logger.info(f"Merging extension file from local path: {file_path}")
+                with open(file_path, 'r') as file:
+                    ext_yaml = safe_load(file)
+            else:
+                raise HTTPException(status_code=404, detail=f"Extension file {file_path} not found.")
 
             # Merge tags
             for key in ext_yaml.get('skg-if-api', {}).keys():
@@ -98,7 +133,10 @@ def merge_endpoint(core: str, ext: List[str] = Query(...)):
                     merge(core_yaml['components']['schemas'], ext_yaml['skg-if-api'][key], '')
 
         # Return the resulting YAML
-        return dump(core_yaml, sort_keys=False)
+        output_filename = f"merged_output_{core_file}_{version_str}.yaml"
+        with open(output_filename, "w") as temp_file:
+            temp_file.write(dump(core_yaml, sort_keys=False))
+        return FileResponse(output_filename, media_type="application/x-yaml", filename=output_filename)
 
     except httpx.HTTPStatusError as e:
         raise HTTPException(status_code=e.response.status_code, detail=f"Error fetching YAML: {e}")
