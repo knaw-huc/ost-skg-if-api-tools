@@ -34,22 +34,41 @@ logger = logging.getLogger("fastapi-logger")
 logger.info("Starting SKG-IF specification merge api ...")
 logger.info(f"configs: {json.dumps(config, indent=2)}")
 
+
 ### Cache related functions ###
 # Initialize SQLite database
 def init_cache_db():
     conn = sqlite3.connect(sqlite_file)
     cursor = conn.cursor()
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS cache (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            version_str TEXT NOT NULL,
-            core_file TEXT NOT NULL,
-            exts_md5 TEXT NOT NULL,
-            output_file TEXT NOT NULL
-        )
-    """)
+                   CREATE TABLE IF NOT EXISTS cache
+                   (
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       version_str
+                       TEXT
+                       NOT
+                       NULL,
+                       core_file
+                       TEXT
+                       NOT
+                       NULL,
+                       exts_md5
+                       TEXT
+                       NOT
+                       NULL,
+                       output_file
+                       TEXT
+                       NOT
+                       NULL
+                   )
+                   """)
     conn.commit()
-    conn.close()
+    return conn
+
 
 # Compute MD5 hash of extensions
 def compute_md5(ext_files: List[str]) -> str:
@@ -64,33 +83,39 @@ def compute_md5(ext_files: List[str]) -> str:
             md5.update(f.read())
     return md5.hexdigest()
 
+
 # Check cache
 def get_cached_file(version_str, core_file, exts_md5):
     conn = sqlite3.connect(sqlite_file)
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT output_file FROM cache
-        WHERE version_str = ? AND core_file = ? AND exts_md5 = ?
-    """, (version_str, core_file, exts_md5))
+                   SELECT output_file
+                   FROM cache
+                   WHERE version_str = ?
+                     AND core_file = ?
+                     AND exts_md5 = ?
+                   """, (version_str, core_file, exts_md5))
     result = cursor.fetchone()
-    conn.close()
+
     return result[0] if result else None
+
 
 # Add to cache
 def add_to_cache(version_str, core_file, exts_md5, output_file):
     conn = sqlite3.connect(sqlite_file)
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO cache (version_str, core_file, exts_md5, output_file)
-        VALUES (?, ?, ?, ?)
-    """, (version_str, core_file, exts_md5, output_file))
+                   INSERT INTO cache (version_str, core_file, exts_md5, output_file)
+                   VALUES (?, ?, ?, ?)
+                   """, (version_str, core_file, exts_md5, output_file))
     conn.commit()
-    conn.close()
+
+
 
 ### End of cache related functions ###
 
 # Getting connection to SQLite database
-conn = sqlite3.connect(sqlite_file)
+conn = init_cache_db()
 
 app = FastAPI()
 
@@ -157,7 +182,8 @@ def load_or_fetch_core_yaml(version_str: str, core_file: str):
 
 @apir.get("/{version_str}/{core_file}")
 def merge_endpoint(version_str: str, core_file: str, ext: List[str] = Query(default=[])):
-    logger.info(f"Received request to merge YAML files for version: {version_str}, core_file: {core_file}, extensions: {ext}")
+    logger.info(
+        f"Received request to merge YAML files for version: {version_str}, core_file: {core_file}, extensions: {ext}")
     # append the api_ext_folder to each extension file name
     ext = [os.path.join(api_ext_folder, file) for file in ext]
 
@@ -206,7 +232,6 @@ def merge_endpoint(version_str: str, core_file: str, ext: List[str] = Query(defa
     with open(output_filename, "w") as temp_file:
         temp_file.write(dump(core_yaml, sort_keys=False))
     return FileResponse(output_filename, media_type="application/x-yaml", filename=output_filename)
-
 
 
 app.include_router(apir)
