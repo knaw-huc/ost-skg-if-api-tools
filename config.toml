@@ -4,5 +4,8 @@ core_folder = "merge/API/core"
 core_fetching_url = "http://nginx/{version}/{filename}"
 ext_folder = "merge/API/ext"
 
+[cache]
+sqlite_file = "cache.db"
+
 [test]
 query_url = "http://localhost:8000/api/ver/1.1.3/skg-if-openapi.yaml?ext=foo&ext=bar"

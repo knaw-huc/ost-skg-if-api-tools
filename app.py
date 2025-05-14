@@ -4,6 +4,8 @@ import json
 import toml
 import httpx
 import logging
+import sqlite3
+import hashlib
 from typing import List
 from yaml import dump, safe_load, YAMLError
 from fastapi import FastAPI
@@ -16,6 +18,7 @@ config = toml.load("config.toml")
 api_core_folder = config["api"]["core_folder"]
 api_core_fetching_url = config["api"]["core_fetching_url"]
 api_ext_folder = config["api"]["ext_folder"]
+sqlite_file = config["cache"]["sqlite_file"]
 
 # Configure logging
 logging.basicConfig(
@@ -30,6 +33,65 @@ logger = logging.getLogger("fastapi-logger")
 
 logger.info("Starting SKG-IF specification merge api ...")
 logger.info(f"configs: {json.dumps(config, indent=2)}")
+
+### Cache related functions ###
+# Initialize SQLite database
+def init_cache_db():
+    conn = sqlite3.connect(sqlite_file)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS cache (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            version_str TEXT NOT NULL,
+            core_file TEXT NOT NULL,
+            exts_md5 TEXT NOT NULL,
+            output_file TEXT NOT NULL
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+# Compute MD5 hash of extensions
+def compute_md5(ext_files: List[str]) -> str:
+    if len(ext_files) == 0:
+        raise ValueError("No extension files provided.")
+    if not all(os.path.isfile(file) for file in ext_files):
+        raise FileNotFoundError("One or more extension files do not exist.")
+
+    md5 = hashlib.md5()
+    for ext_file in ext_files:  # Sort to ensure consistent order
+        with open(os.path.join(api_ext_folder, ext_file), "rb") as f:
+            md5.update(f.read())
+    return md5.hexdigest()
+
+# Check cache
+def get_cached_file(version_str, core_file, exts_md5):
+    conn = sqlite3.connect(sqlite_file)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT output_file FROM cache
+        WHERE version_str = ? AND core_file = ? AND exts_md5 = ?
+    """, (version_str, core_file, exts_md5))
+    result = cursor.fetchone()
+    conn.close()
+    return result[0] if result else None
+
+# Add to cache
+def add_to_cache(version_str, core_file, exts_md5, output_file):
+    conn = sqlite3.connect(sqlite_file)
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO cache (version_str, core_file, exts_md5, output_file)
+        VALUES (?, ?, ?, ?)
+    """, (version_str, core_file, exts_md5, output_file))
+    conn.commit()
+    conn.close()
+
+### End of cache related functions ###
+
+# Getting connection to SQLite database
+conn = sqlite3.connect(sqlite_file)
+
 app = FastAPI()
 
 # Mount the static directory
@@ -71,7 +133,7 @@ def read_root():
     return {"message": "Welcome to the FastAPI app!"}
 
 
-def fetch_or_load_core_yaml(version_str: str, core_file: str):
+def load_or_fetch_core_yaml(version_str: str, core_file: str):
     # Check if the core file exists locally
     local_core_path = os.path.join(api_core_folder, version_str, core_file)
     try:
@@ -96,54 +158,55 @@ def fetch_or_load_core_yaml(version_str: str, core_file: str):
 @apir.get("/{version_str}/{core_file}")
 def merge_endpoint(version_str: str, core_file: str, ext: List[str] = Query(default=[])):
     logger.info(f"Received request to merge YAML files for version: {version_str}, core_file: {core_file}, extensions: {ext}")
+    # append the api_ext_folder to each extension file name
+    ext = [os.path.join(api_ext_folder, file) for file in ext]
 
-    try:
-        # Fetch and load the core YAML
-        core_yaml = fetch_or_load_core_yaml(version_str, core_file)
-        logger.debug(f"Loaded core YAML: {core_yaml}")
+    if not version_str or not core_file:
+        raise FileNotFoundError("Version string or core file name is missing.")
+    if len(ext) == 0 or not all(os.path.isfile(file) for file in ext):
+        raise FileNotFoundError("One or more extension files do not exist.")
 
-        if not core_yaml or len(ext) == 0:
-            raise HTTPException(status_code=400, detail="Core YAML or extensions not found.")
+    # Fetch and load the core YAML
+    core_yaml = load_or_fetch_core_yaml(version_str, core_file)
+    logger.debug(f"Loaded core YAML: {core_yaml}")
 
-        # Fetch and load each extension YAML
-        for ext_file in ext:
-            file_path: str = os.path.join(api_ext_folder, os.path.basename(ext_file))
-            if os.path.isfile(file_path):
-                logger.info(f"Merging extension file from local path: {file_path}")
-                with open(file_path, 'r') as file:
-                    ext_yaml = safe_load(file)
-            else:
-                raise HTTPException(status_code=404, detail=f"Extension file {file_path} not found.")
+    if not core_yaml:
+        raise FileNotFoundError("The given version or Core YAML cannot be found.")
 
-            # Merge tags
-            for key in ext_yaml.get('skg-if-api', {}).keys():
-                if key.startswith("+tag-"):
-                    core_yaml['tags'].append(ext_yaml['skg-if-api'][key])
+    # Fetch and load each extension YAML
+    for ext_file in ext:
+        logger.info(f"Merging extension file from local path: {ext_file}")
+        try:
+            with open(ext_file, 'r') as file:
+                ext_yaml = safe_load(file)
+        except YAMLError as e:
+            raise YAMLError(f"Error parsing ext YAML file: {ext_file}.")
+        except:
+            raise Exception(f"Error loading YAML file: {ext_file}.")
 
-            # Merge paths
-            for key in ext_yaml.get('skg-if-api', {}).keys():
-                if key.startswith("+path-"):
-                    core_yaml['paths'].update(ext_yaml['skg-if-api'][key])
+        # Merge tags
+        for key in ext_yaml.get('skg-if-api', {}).keys():
+            if key.startswith("+tag-"):
+                core_yaml['tags'].append(ext_yaml['skg-if-api'][key])
 
-            # Merge schemas
-            for key in ext_yaml.get('skg-if-api', {}).keys():
-                if key.startswith("+schema-"):
-                    core_yaml['components']['schemas'].update(ext_yaml['skg-if-api'][key])
-                if key.startswith("~schema-"):
-                    merge(core_yaml['components']['schemas'], ext_yaml['skg-if-api'][key], '')
+        # Merge paths
+        for key in ext_yaml.get('skg-if-api', {}).keys():
+            if key.startswith("+path-"):
+                core_yaml['paths'].update(ext_yaml['skg-if-api'][key])
 
-        # Return the resulting YAML
-        output_filename = f"merged_output_{core_file}_{version_str}.yaml"
-        with open(output_filename, "w") as temp_file:
-            temp_file.write(dump(core_yaml, sort_keys=False))
-        return FileResponse(output_filename, media_type="application/x-yaml", filename=output_filename)
+        # Merge schemas
+        for key in ext_yaml.get('skg-if-api', {}).keys():
+            if key.startswith("+schema-"):
+                core_yaml['components']['schemas'].update(ext_yaml['skg-if-api'][key])
+            if key.startswith("~schema-"):
+                merge(core_yaml['components']['schemas'], ext_yaml['skg-if-api'][key], '')
 
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code, detail=f"Error fetching YAML: {e}")
-    except YAMLError as e:
-        raise HTTPException(status_code=400, detail=f"Error parsing YAML: {e}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error: {e}")
+    # Return the resulting YAML
+    output_filename = f"merged_output_{core_file}_{version_str}.yaml"
+    with open(output_filename, "w") as temp_file:
+        temp_file.write(dump(core_yaml, sort_keys=False))
+    return FileResponse(output_filename, media_type="application/x-yaml", filename=output_filename)
+
 
 
 app.include_router(apir)
