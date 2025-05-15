@@ -1,5 +1,4 @@
 import os
-import sys
 import json
 import toml
 import httpx
@@ -12,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.routing import APIRouter
 from fastapi.responses import JSONResponse, FileResponse
-from fastapi import HTTPException, Query
+from fastapi import Query
 
 config = toml.load("config.toml")
 api_core_folder: str = config["api"]["core_folder"]
@@ -35,7 +34,6 @@ logger = logging.getLogger("fastapi-logger")
 
 logger.info("Starting SKG-IF specification merge api ...")
 logger.info(f"configs: {json.dumps(config, indent=2)}")
-
 
 
 ### Cache related functions ###
@@ -71,6 +69,11 @@ def init_cache_db():
                    )
                    """)
     conn.commit()
+    conn.close()
+
+
+def get_db_connection():
+    conn = sqlite3.connect(sqlite_file)
     return conn
 
 
@@ -110,14 +113,10 @@ def add_to_cache(version_str, core_file, exts_md5, output_file):
     conn.commit()
 
 
-
 ### End of cache related functions ###
 
-# Getting connection to SQLite database
-conn = init_cache_db()
-
 app = FastAPI()
-
+init_cache_db()
 # Mount the static directory
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -179,7 +178,8 @@ def load_or_fetch_core_yaml(version_str: str, core_file: str):
         return safe_load(response.text)
 
 
-def get_files_in_folder(folder: str = api_ext_folder, include_path: bool = False, postfixes: Optional[List[str]] = None) -> List[str]:
+def get_files_in_folder(folder: str = api_ext_folder, include_path: bool = False,
+                        postfixes: Optional[List[str]] = None) -> List[str]:
     if postfixes is None:
         postfixes = ext_postfix
 
@@ -200,12 +200,14 @@ def clean_ext(ext: List[str], ext_folder_to_clean: str = api_ext_folder) -> List
         raise ValueError("Duplicate extensions found.")
     # check if all extensions exist
     for item in ext:
-        matching_file = next((f"{item}{postfix}" for postfix in ext_postfix if f"{item}{postfix}" in existing_ext_files), None)
+        matching_file = next(
+            (f"{item}{postfix}" for postfix in ext_postfix if f"{item}{postfix}" in existing_ext_files), None)
         if not matching_file:
             raise FileNotFoundError(f"Extension '{item}' does not exist.")
         ext[ext.index(item)] = matching_file
 
     return ext
+
 
 def validate_core(version_str: str, core_file: str):
     if not version_str or not core_file:
@@ -247,12 +249,13 @@ def merge_endpoint(version_str: str, core_file: str, ext: List[str] = Query(defa
     ext = validate_ext(ext)
 
     # Check cache for existing merged file
+    # Getting connection to SQLite database
+    conn = get_db_connection()
     exts_md5 = compute_md5(ext)
     cached_file = get_cached_file(version_str, core_file, exts_md5)
     if cached_file:
         logger.info(f"Using cached merged file: {cached_file}")
-        return FileResponse(cached_file, media_type="application/x-yaml", filename=os.path.basename(cached_file))
-
+        return FileResponse(cached_file, media_type="application/x-yaml", filename="merged_output.yaml")
 
     # Fetch and load each extension YAML
     for ext_file in ext:
@@ -260,7 +263,7 @@ def merge_endpoint(version_str: str, core_file: str, ext: List[str] = Query(defa
         try:
             with open(ext_file, 'r') as file:
                 ext_yaml = safe_load(file)
-        except YAMLError as e:
+        except YAMLError:
             raise YAMLError(f"Error parsing ext YAML file: {ext_file}.")
         except:
             raise Exception(f"Error loading YAML file: {ext_file}.")
@@ -283,11 +286,26 @@ def merge_endpoint(version_str: str, core_file: str, ext: List[str] = Query(defa
                 merge(core_yaml['components']['schemas'], ext_yaml['skg-if-api'][key], '')
 
     # Return the resulting YAML
-    output_filename = os.path.join(output_folder, f"merged_output_{core_file}_{version_str}.yaml")
+    output_basename = f"merged_output_{core_file}_{version_str}_{exts_md5}.yaml"
+    output_filename = os.path.join(output_folder, output_basename)
     save_output(core_yaml, output_filename)
     # Add to cache
     add_to_cache(version_str, core_file, exts_md5, output_filename)
-    return FileResponse(output_filename, media_type="application/x-yaml", filename=f"merged_output_{core_file}_{version_str}.yaml")
+    conn.commit()
+    conn.close()
+    return FileResponse(output_filename, media_type="application/x-yaml", filename="merged_output.yaml")
+
+
+@apir.get("/clear_cache")
+def clear_cache():
+    logger.info("Clearing cache...")
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM cache")
+    conn.commit()
+    conn.close()
+    logger.info("Cache cleared.")
+    return JSONResponse(content={"message": "Cache cleared."})
 
 
 app.include_router(apir)
