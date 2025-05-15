@@ -209,12 +209,7 @@ def clean_ext(ext: List[str], ext_folder_to_clean: str = api_ext_folder) -> List
 
     return ext
 
-@apir.get("/{version_str}/{core_file}")
-def merge_endpoint(version_str: str, core_file: str, ext: List[str] = Query(default=[])):
-    logger.info(
-        f"Received request to merge YAML files for version: {version_str}, core_file: {core_file}, extensions: {ext}")
-
-    # validate core
+def validate_core(version_str: str, core_file: str):
     if not version_str or not core_file:
         raise FileNotFoundError("Version string or core file name is missing.")
     # Fetch and load the core YAML
@@ -222,8 +217,10 @@ def merge_endpoint(version_str: str, core_file: str, ext: List[str] = Query(defa
     if not core_yaml:
         raise FileNotFoundError("The given version or Core YAML cannot be found.")
     logger.debug(f"Loaded core YAML: {core_yaml}")
+    return core_yaml
 
-    # validate ext
+
+def validate_ext(ext: List[str]):
     if len(ext) == 0:
         raise FileNotFoundError("No extension files provided.")
     # make sure the requested ext files exist and get the file names
@@ -232,6 +229,18 @@ def merge_endpoint(version_str: str, core_file: str, ext: List[str] = Query(defa
     ext = [os.path.join(api_ext_folder, file) for file in ext]
     logger.info("Extension files OK!")
     logger.debug(f"Extension files: {ext}")
+    return ext
+
+
+@apir.get("/{version_str}/{core_file}")
+def merge_endpoint(version_str: str, core_file: str, ext: List[str] = Query(default=[])):
+    logger.info(
+        f"Received request to merge YAML files for version: {version_str}, core_file: {core_file}, extensions: {ext}")
+
+    # validate core
+    core_yaml = validate_core(version_str, core_file)
+    # validate ext
+    ext = validate_ext(ext)
 
     # Fetch and load each extension YAML
     for ext_file in ext:
