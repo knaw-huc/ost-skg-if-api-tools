@@ -1,7 +1,7 @@
 [project]
 name = "skgif-spec-merger"
 version = "0.1.0"
-description = "Add your description here"
+description = "This project merges multiple OpenAPI specifications extensions into a single core specification for SKG IF."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
