@@ -268,8 +268,6 @@ def merge_endpoint(version_str: str, core_file: str, ext: List[str] = Query(defa
                 ext_yaml = safe_load(file)
         except YAMLError:
             raise YAMLError(f"Error parsing ext YAML file: {ext_file}.")
-        except:
-            raise Exception(f"Error loading YAML file: {ext_file}.")
 
         # Merge tags
         for key in ext_yaml.get('skg-if-api', {}).keys():
