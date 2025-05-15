@@ -3,6 +3,7 @@ core_folder = "merge/API/core"
 #core_fetching_url = "https://github.com/skg-if/api/openapi/ver/{version}/{filename}"
 core_fetching_url = "http://nginx/{version}/{filename}"
 ext_folder = "merge/API/ext"
+output_folder = "merge/API/output"
 
 [api.ext]
 ext_postfix = [".yaml", ".yml"]

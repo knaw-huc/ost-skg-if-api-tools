@@ -20,6 +20,7 @@ api_core_fetching_url: str = config["api"]["core_fetching_url"]
 api_ext_folder: str = config["api"]["ext_folder"]
 sqlite_file: str = config["cache"]["sqlite_file"]
 ext_postfix: List[str] = config["api"]["ext"]["ext_postfix"]
+output_folder: str = config["api"]["output_folder"]
 
 # Configure logging
 logging.basicConfig(
@@ -204,7 +205,7 @@ def clean_ext(ext: List[str], ext_folder_to_clean: str = api_ext_folder) -> List
     for item in ext:
         matching_file = next((f"{item}{postfix}" for postfix in ext_postfix if f"{item}{postfix}" in existing_ext_files), None)
         if not matching_file:
-            raise FileNotFoundError(f"Extension file '{item}' with any of the postfixes {ext_postfix} does not exist.")
+            raise FileNotFoundError(f"Extension '{item}' does not exist.")
         ext[ext.index(item)] = matching_file
 
     return ext
@@ -230,6 +231,12 @@ def validate_ext(ext: List[str]):
     logger.info("Extension files OK!")
     logger.debug(f"Extension files: {ext}")
     return ext
+
+
+def save_output(core_yaml, output_filename: str):
+    with open(output_filename, "w") as temp_file:
+        temp_file.write(dump(core_yaml, sort_keys=False))
+    logger.info(f"Saved merged YAML to {output_filename}")
 
 
 @apir.get("/{version_str}/{core_file}")
@@ -271,10 +278,11 @@ def merge_endpoint(version_str: str, core_file: str, ext: List[str] = Query(defa
                 merge(core_yaml['components']['schemas'], ext_yaml['skg-if-api'][key], '')
 
     # Return the resulting YAML
-    output_filename = f"merged_output_{core_file}_{version_str}.yaml"
-    with open(output_filename, "w") as temp_file:
-        temp_file.write(dump(core_yaml, sort_keys=False))
-    return FileResponse(output_filename, media_type="application/x-yaml", filename=output_filename)
+    output_filename = os.path.join(output_folder, f"merged_output_{core_file}_{version_str}.yaml")
+    save_output(core_yaml, output_filename)
+    return FileResponse(output_filename, media_type="application/x-yaml", filename=f"merged_output_{core_file}_{version_str}.yaml")
 
 
 app.include_router(apir)
+if not os.path.exists(output_folder):
+    os.makedirs(output_folder)
