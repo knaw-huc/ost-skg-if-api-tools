@@ -5,11 +5,11 @@ OSTrails - SKG IF - API - tools
 1. Clone the repository
 2. `docker build -t skgif:test .`
 3. `docker compose up -d`
-
-The stack will be up and running with `fastapi` on port `8000:8000` and `nginx` on port `8080:80`
-
 4. Visit `http://localhost:8000/api/ver` to see the nginx welcome page.
 5. Visit `http://localhost:8000/api/ver/1.1.3/skg-if-api.yaml?ext=service` to download the merged yaml file.
+6. (Optional) Visit `http://localhost:8000/api/ver/1.1.3/skg-if-api.yaml?ext=service&nocache=yes` to download the merged yaml file with cache disabled.
+
+The stack will be up and running with `fastapi` on port `8000:8000` and `nginx` on port `8080:80`
 
 ### Config
 The config file is `config.toml` in the root directory. 
@@ -36,5 +36,9 @@ sqlite_file = "cache.db"
 6. `ext_postfix` is the postfix of the ext yaml filee, the yaml file can be `.yaml` or `.yml`.
 7. `sqlite_file` is the sqlite db where cache information is stored.
 
-### Testing
+### Note 
 For testing purpose, endpoint `clear_cache` is made to remove all the cache entries in the sqlite db.
+
+The cache is *not* cleared. Same version of core with same ext will always be fetched from the cache. If 
+user want to skip the cache and force a new merge, please use `nocache=yes` to force the cache miss.
+
