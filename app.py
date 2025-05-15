@@ -37,9 +37,11 @@ logger.info("Starting SKG-IF specification merge api ...")
 logger.info(f"configs: {json.dumps(config, indent=2)}")
 
 
+
 ### Cache related functions ###
 # Initialize SQLite database
 def init_cache_db():
+    logger.info("Initializing SQLite database for caching...")
     conn = sqlite3.connect(sqlite_file)
     cursor = conn.cursor()
     cursor.execute("""
@@ -74,14 +76,9 @@ def init_cache_db():
 
 # Compute MD5 hash of extensions
 def compute_md5(ext_files: List[str]) -> str:
-    if len(ext_files) == 0:
-        raise ValueError("No extension files provided.")
-    if not all(os.path.isfile(file) for file in ext_files):
-        raise FileNotFoundError("One or more extension files do not exist.")
-
     md5 = hashlib.md5()
     for ext_file in ext_files:  # Sort to ensure consistent order
-        with open(os.path.join(api_ext_folder, ext_file), "rb") as f:
+        with open(ext_file, "rb") as f:
             md5.update(f.read())
     return md5.hexdigest()
 
@@ -217,7 +214,7 @@ def validate_core(version_str: str, core_file: str):
     core_yaml = load_or_fetch_core_yaml(version_str, core_file)
     if not core_yaml:
         raise FileNotFoundError("The given version or Core YAML cannot be found.")
-    logger.debug(f"Loaded core YAML: {core_yaml}")
+    logger.debug(f"Core YAML OK! Loaded core YAML: {core_yaml}")
     return core_yaml
 
 
@@ -228,7 +225,7 @@ def validate_ext(ext: List[str]):
     ext = clean_ext(ext)
     # add full path to ext files
     ext = [os.path.join(api_ext_folder, file) for file in ext]
-    logger.info("Extension files OK!")
+    logger.info("Extension OK!")
     logger.debug(f"Extension files: {ext}")
     return ext
 
@@ -248,6 +245,14 @@ def merge_endpoint(version_str: str, core_file: str, ext: List[str] = Query(defa
     core_yaml = validate_core(version_str, core_file)
     # validate ext
     ext = validate_ext(ext)
+
+    # Check cache for existing merged file
+    exts_md5 = compute_md5(ext)
+    cached_file = get_cached_file(version_str, core_file, exts_md5)
+    if cached_file:
+        logger.info(f"Using cached merged file: {cached_file}")
+        return FileResponse(cached_file, media_type="application/x-yaml", filename=os.path.basename(cached_file))
+
 
     # Fetch and load each extension YAML
     for ext_file in ext:
@@ -280,6 +285,8 @@ def merge_endpoint(version_str: str, core_file: str, ext: List[str] = Query(defa
     # Return the resulting YAML
     output_filename = os.path.join(output_folder, f"merged_output_{core_file}_{version_str}.yaml")
     save_output(core_yaml, output_filename)
+    # Add to cache
+    add_to_cache(version_str, core_file, exts_md5, output_filename)
     return FileResponse(output_filename, media_type="application/x-yaml", filename=f"merged_output_{core_file}_{version_str}.yaml")
 
 
