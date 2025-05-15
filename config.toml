@@ -4,6 +4,9 @@ core_folder = "merge/API/core"
 core_fetching_url = "http://nginx/{version}/{filename}"
 ext_folder = "merge/API/ext"
 
+[api.ext]
+ext_postfix = [".yaml", ".yml"]
+
 [cache]
 sqlite_file = "cache.db"
 

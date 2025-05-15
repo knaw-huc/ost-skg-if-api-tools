@@ -6,7 +6,7 @@ import httpx
 import logging
 import sqlite3
 import hashlib
-from typing import List
+from typing import List, Optional
 from yaml import dump, safe_load, YAMLError
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -15,10 +15,11 @@ from fastapi.responses import JSONResponse, FileResponse
 from fastapi import HTTPException, Query
 
 config = toml.load("config.toml")
-api_core_folder = config["api"]["core_folder"]
-api_core_fetching_url = config["api"]["core_fetching_url"]
-api_ext_folder = config["api"]["ext_folder"]
-sqlite_file = config["cache"]["sqlite_file"]
+api_core_folder: str = config["api"]["core_folder"]
+api_core_fetching_url: str = config["api"]["core_fetching_url"]
+api_ext_folder: str = config["api"]["ext_folder"]
+sqlite_file: str = config["cache"]["sqlite_file"]
+ext_postfix: List[str] = config["api"]["ext"]["ext_postfix"]
 
 # Configure logging
 logging.basicConfig(
@@ -180,24 +181,57 @@ def load_or_fetch_core_yaml(version_str: str, core_file: str):
         return safe_load(response.text)
 
 
+def get_files_in_folder(folder: str = api_ext_folder, include_path: bool = False, postfixes: Optional[List[str]] = None) -> List[str]:
+    if postfixes is None:
+        postfixes = ext_postfix
+
+    files = []
+    for file in os.listdir(folder):
+        if any(file.endswith(postfix) for postfix in postfixes):
+            files.append(os.path.join(folder, file) if include_path else file)
+    return files
+
+
+def clean_ext(ext: List[str], ext_folder_to_clean: str = api_ext_folder) -> List[str]:
+    existing_ext_files: List[str] = get_files_in_folder(ext_folder_to_clean, False, ext_postfix)
+    logger.info(f"Extension files in folder: {existing_ext_files}")
+    # remove postfix if there
+    ext = [os.path.splitext(os.path.basename(file))[0] for file in ext]
+    # remove duplicates
+    if len(ext) != len(set(ext)):
+        raise ValueError("Duplicate extensions found.")
+    # check if all extensions exist
+    for item in ext:
+        matching_file = next((f"{item}{postfix}" for postfix in ext_postfix if f"{item}{postfix}" in existing_ext_files), None)
+        if not matching_file:
+            raise FileNotFoundError(f"Extension file '{item}' with any of the postfixes {ext_postfix} does not exist.")
+        ext[ext.index(item)] = matching_file
+
+    return ext
+
 @apir.get("/{version_str}/{core_file}")
 def merge_endpoint(version_str: str, core_file: str, ext: List[str] = Query(default=[])):
     logger.info(
         f"Received request to merge YAML files for version: {version_str}, core_file: {core_file}, extensions: {ext}")
-    # append the api_ext_folder to each extension file name
-    ext = [os.path.join(api_ext_folder, file) for file in ext]
 
+    # validate core
     if not version_str or not core_file:
         raise FileNotFoundError("Version string or core file name is missing.")
-    if len(ext) == 0 or not all(os.path.isfile(file) for file in ext):
-        raise FileNotFoundError("One or more extension files do not exist.")
-
     # Fetch and load the core YAML
     core_yaml = load_or_fetch_core_yaml(version_str, core_file)
-    logger.debug(f"Loaded core YAML: {core_yaml}")
-
     if not core_yaml:
         raise FileNotFoundError("The given version or Core YAML cannot be found.")
+    logger.debug(f"Loaded core YAML: {core_yaml}")
+
+    # validate ext
+    if len(ext) == 0:
+        raise FileNotFoundError("No extension files provided.")
+    # make sure the requested ext files exist and get the file names
+    ext = clean_ext(ext)
+    # add full path to ext files
+    ext = [os.path.join(api_ext_folder, file) for file in ext]
+    logger.info("Extension files OK!")
+    logger.debug(f"Extension files: {ext}")
 
     # Fetch and load each extension YAML
     for ext_file in ext:
