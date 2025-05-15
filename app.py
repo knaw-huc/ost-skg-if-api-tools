@@ -106,11 +106,14 @@ def get_cached_file(version_str, core_file, exts_md5):
 def add_to_cache(version_str, core_file, exts_md5, output_file):
     conn = sqlite3.connect(sqlite_file)
     cursor = conn.cursor()
-    cursor.execute("""
-                   INSERT INTO cache (version_str, core_file, exts_md5, output_file)
-                   VALUES (?, ?, ?, ?)
-                   """, (version_str, core_file, exts_md5, output_file))
-    conn.commit()
+    # Check if the entry already exists
+    cached_file = get_cached_file(version_str, core_file, exts_md5)
+    if not cached_file:
+        cursor.execute("""
+                       INSERT INTO cache (version_str, core_file, exts_md5, output_file)
+                       VALUES (?, ?, ?, ?)
+                       """, (version_str, core_file, exts_md5, output_file))
+        conn.commit()
 
 
 ### End of cache related functions ###
@@ -239,7 +242,7 @@ def save_output(core_yaml, output_filename: str):
 
 
 @apir.get("/{version_str}/{core_file}")
-def merge_endpoint(version_str: str, core_file: str, ext: List[str] = Query(default=[])):
+def merge_endpoint(version_str: str, core_file: str, ext: List[str] = Query(default=[]), nocache: bool = Query(default=False)):
     logger.info(
         f"Received request to merge YAML files for version: {version_str}, core_file: {core_file}, extensions: {ext}")
 
@@ -253,7 +256,7 @@ def merge_endpoint(version_str: str, core_file: str, ext: List[str] = Query(defa
     conn = get_db_connection()
     exts_md5 = compute_md5(ext)
     cached_file = get_cached_file(version_str, core_file, exts_md5)
-    if cached_file:
+    if cached_file and not nocache:
         logger.info(f"Using cached merged file: {cached_file}")
         return FileResponse(cached_file, media_type="application/x-yaml", filename="merged_output.yaml")
 
@@ -291,7 +294,6 @@ def merge_endpoint(version_str: str, core_file: str, ext: List[str] = Query(defa
     save_output(core_yaml, output_filename)
     # Add to cache
     add_to_cache(version_str, core_file, exts_md5, output_filename)
-    conn.commit()
     conn.close()
     return FileResponse(output_filename, media_type="application/x-yaml", filename="merged_output.yaml")
 
