@@ -159,33 +159,48 @@ def read_root():
     return {"message": "Welcome to the FastAPI app!"}
 
 
-def load_or_fetch_core_yaml(version_str: str, core_file: str):
-    # Check if the core file exists locally
+def load_core_yaml(version_str: str, core_file: str):
     local_core_path = os.path.join(api_core_folder, version_str, core_file)
     try:
         with open(local_core_path, 'r') as file:
             logger.info(f"Loading core file from local path: {local_core_path}")
             return safe_load(file)
     except FileNotFoundError:
-        # Fetch the core YAML from the URL
-        url = api_core_fetching_url.format(version=version_str, filename=core_file)
-        logger.info(f"Core file {local_core_path} not found. Fetching from {url}.")
-        try:
-            response = httpx.get(url)
-            response.raise_for_status()
-            logger.info(f"Fetched core file from {url}.")
-            # Save the fetched file locally
-            os.makedirs(os.path.dirname(local_core_path), exist_ok=True)
-            with open(local_core_path, 'w') as file:
-                file.write(response.text)
-                logger.info(f"Saved core file to local path: {local_core_path}")
-            return safe_load(response.text)
-        except httpx.RequestError as e:
-            logger.error(f"Error fetching core file: {e}")
-            raise FileNotFoundError(f"Core file {core_file} not found at {url}.")
-        except SyntaxError as e:
-            logger.error(f"Error parsing core YAML file: {e}")
-            raise YAMLError(f"Error parsing core YAML file: {local_core_path}.")
+        return None
+
+
+def fetch_core_yaml(version_str: str, core_file: str):
+    local_core_path = os.path.join(api_core_folder, version_str, core_file)
+    # Fetch the core YAML from the URL
+    url = api_core_fetching_url.format(version=version_str, filename=core_file)
+    logger.info(f"Fetching core from {url}.")
+    try:
+        response = httpx.get(url)
+        response.raise_for_status()
+        logger.info(f"Fetched core file from {url}.")
+        # Save the fetched file locally
+        os.makedirs(os.path.dirname(local_core_path), exist_ok=True)
+        with open(local_core_path, 'w') as file:
+            file.write(response.text)
+            logger.info(f"Saved core file to local path: {local_core_path}")
+        return safe_load(response.text)
+    except httpx.RequestError as e:
+        logger.error(f"Error fetching core file: {e}")
+        raise FileNotFoundError(f"Core file {core_file} not found at {url}.")
+    except SyntaxError as e:
+        logger.error(f"Error parsing core YAML file: {e}")
+        raise YAMLError(f"Error parsing core YAML file: {local_core_path}.")
+
+
+def load_or_fetch_core_yaml(version_str: str, core_file: str, nocache: bool = False):
+    # Check if the core file exists locally
+    if nocache:
+        return fetch_core_yaml(version_str, core_file)
+    else:
+        core_yaml = load_core_yaml(version_str, core_file)
+        if core_yaml:
+            return core_yaml
+        return fetch_core_yaml(version_str, core_file)
 
 
 def get_files_in_folder(folder: str = api_ext_folder, include_path: bool = False,
