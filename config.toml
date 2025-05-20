@@ -1,7 +1,7 @@
 [api]
 core_folder = "merge/API/core"
-#core_fetching_url = "https://github.com/skg-if/api/openapi/ver/{version}/{filename}"
-core_fetching_url = "http://nginx/{version}/{filename}"
+# Production URL
+core_fetching_url = "https://raw.githubusercontent.com/skg-if/api/refs/heads/main/openapi/ver/{version}/{filename}"
 ext_folder = "merge/API/ext"
 output_folder = "merge/API/output"
 
@@ -12,4 +12,6 @@ ext_postfix = [".yaml", ".yml"]
 sqlite_file = "cache.db"
 
 [test]
+# Local URL for testing
+#core_fetching_url = "http://nginx/{version}/{filename}"
 query_url = "http://localhost:8000/api/ver/1.1.3/skg-if-openapi.yaml?ext=foo&ext=bar"
