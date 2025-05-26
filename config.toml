@@ -1,7 +1,7 @@
 [api]
 core_folder = "merge/API/core"
 # Production URL
-core_fetching_url = "https://raw.githubusercontent.com/skg-if/api/refs/heads/main/openapi/ver/{version}/{filename}"
+core_fetching_url = "https://w3id.org/skg-if/api/{version}/{filename}"
 ext_folder = "merge/API/ext"
 output_folder = "merge/API/output"
 
