@@ -1,13 +1,4 @@
 extension: service
-skg-if-context:
-  +prefix:
-      - my:http://my.example.com/
-  +entity:
-    service:
-      - my:myServiceClass
-  +property:
-    services:
-      - my:myServiceProp
 skg-if-api:
   +tag-service:
     name: Service
@@ -99,5 +90,5 @@ skg-if-api:
             +services:
               type: array
               items:
-                $ref: '#/components/schemas/ServiceLite'
+                $ref: '#/components/schemas/Service'
 
