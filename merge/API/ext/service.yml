@@ -48,7 +48,7 @@ skg-if-api:
                     results:
                       type: array
                       items:     
-                        $ref: '#/components/schemas/service'
+                        $ref: '#/components/schemas/Service'
                   required: [ "meta", "results" ]                       
   +schema-service:
     Service:
