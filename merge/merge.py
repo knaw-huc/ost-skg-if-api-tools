@@ -44,6 +44,28 @@ def merge(org, src, ident):
             print(ident+"!no MERGE list",file=sys.stderr)
     
 
+def merge_ext_to_core(core, ext):
+    #check tags
+    for key in ext['skg-if-api'].keys():
+        if key.startswith("+tag-"):
+            print("ADD tag["+key+"]",file=sys.stderr)
+            core['tags'].append(ext['skg-if-api'][key])
+    #check paths
+    for key in ext['skg-if-api'].keys():
+        if key.startswith("+path-"):
+            print("ADD path["+key+"]",file=sys.stderr)
+            core['paths'].update(ext['skg-if-api'][key])
+    #check schemas
+    for key in ext['skg-if-api'].keys():
+        if key.startswith("+schema-"):
+            print("ADD schema["+key+"]",file=sys.stderr)
+            core['components']['schemas'].update(ext['skg-if-api'][key])
+        if key.startswith("~schema-"):
+            print("MERGE schema["+key+"]",file=sys.stderr)
+            merge(core['components']['schemas'],ext['skg-if-api'][key],'')
+
+    return core
+
 def main():
     args = sys.argv[1:]
 
@@ -73,24 +95,7 @@ def main():
     print("^^^^^^^^^",file=sys.stderr)
     print("EXTENSION",file=sys.stderr)
 
-    #check tags
-    for key in ext['skg-if-api'].keys():
-        if key.startswith("+tag-"):
-            print("ADD tag["+key+"]",file=sys.stderr)
-            core['tags'].append(ext['skg-if-api'][key])
-    #check paths
-    for key in ext['skg-if-api'].keys():
-        if key.startswith("+path-"):
-            print("ADD path["+key+"]",file=sys.stderr)
-            core['paths'].update(ext['skg-if-api'][key])
-    #check schemas
-    for key in ext['skg-if-api'].keys():
-        if key.startswith("+schema-"):
-            print("ADD schema["+key+"]",file=sys.stderr)
-            core['components']['schemas'].update(ext['skg-if-api'][key])
-        if key.startswith("~schema-"):
-            print("MERGE schema["+key+"]",file=sys.stderr)
-            merge(core['components']['schemas'],ext['skg-if-api'][key],'')
+    core = merge_ext_to_core(core, ext)
     
     #debug
     print("OUTPUT",file=sys.stderr)
