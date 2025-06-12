@@ -34,4 +34,4 @@ jobs:
         run: uv build merge
 
       - name: Publish to PyPI
-        run: uv publish merge
+        run: uv publish merge/dist/*
