@@ -12,6 +12,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.routing import APIRouter
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi import Query
+# from merge.merge import merge_ext_to_core
+from ost_skg_if_api_tools.merge import merge_ext_to_core
 
 config = toml.load("config.toml")
 api_core_folder: str = config["api"]["core_folder"]
@@ -291,22 +293,7 @@ def merge_endpoint(version_str: str, core_file: str, ext: List[str] = Query(defa
         except YAMLError:
             raise YAMLError(f"Error parsing ext YAML file: {ext_file}.")
 
-        # Merge tags
-        for key in ext_yaml.get('skg-if-api', {}).keys():
-            if key.startswith("+tag-"):
-                core_yaml['tags'].append(ext_yaml['skg-if-api'][key])
-
-        # Merge paths
-        for key in ext_yaml.get('skg-if-api', {}).keys():
-            if key.startswith("+path-"):
-                core_yaml['paths'].update(ext_yaml['skg-if-api'][key])
-
-        # Merge schemas
-        for key in ext_yaml.get('skg-if-api', {}).keys():
-            if key.startswith("+schema-"):
-                core_yaml['components']['schemas'].update(ext_yaml['skg-if-api'][key])
-            if key.startswith("~schema-"):
-                merge(core_yaml['components']['schemas'], ext_yaml['skg-if-api'][key], '')
+        core_yaml = merge_ext_to_core(core_yaml, ext_yaml)
 
     # Return the resulting YAML
     output_basename = f"merged_output_{core_file}_{version_str}_{exts_md5}.yaml"

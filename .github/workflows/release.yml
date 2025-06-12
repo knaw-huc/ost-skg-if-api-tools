@@ -31,7 +31,7 @@ jobs:
         run: uv sync --all-extras
 
       - name: Build the project
-        run: uv build merge
+        run: uv build
 
       - name: Publish to PyPI
-        run: uv publish merge/dist/*
+        run: uv publish

@@ -2,6 +2,12 @@ version = 1
 revision = 2
 requires-python = ">=3.12"
 
+[manifest]
+members = [
+    "skgif-spec-merger",
+    "test",
+]
+
 [[package]]
 name = "annotated-types"
 version = "0.7.0"
@@ -113,6 +119,22 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f1/70/7703c29685631f5a7590aa73f1f1d3fa9a380e654b86af429e0934a32f7d/idna-3.10.tar.gz", hash = "sha256:12f65c9b470abda6dc35cf8e63cc574b1c52b11df2c86030af0ac09b01b13ea9", size = 190490, upload-time = "2024-09-15T18:07:39.745Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/76/c6/c88e154df9c4e1a2a66ccf0005a88dfb2650c1dffb6f5ce603dfbd452ce3/idna-3.10-py3-none-any.whl", hash = "sha256:946d195a0d259cbba61165e88e65941f16e9b36ea6ddb97f00452bae8b1287d3", size = 70442, upload-time = "2024-09-15T18:07:37.964Z" },
+]
+
+[[package]]
+name = "ost-skg-if-api-tools"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "pyyaml" },
+    { name = "toml" },
+    { name = "uvicorn" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/69/af/2bb2c0d4af54fdbecbe46d2830bb93dd0d78abe14df7c6905d84548b99ce/ost_skg_if_api_tools-0.1.0.tar.gz", hash = "sha256:3540f3af80a6db5f2624fb4efcf1aac69707f25d8c65e37cc423065e4dc9587a", size = 1890, upload-time = "2025-06-12T17:45:50.925Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7c/02/6a683592d0c2df9a551d5d07ed9d7c1209b99ef90eb239ae6f986b12c9cf/ost_skg_if_api_tools-0.1.0-py3-none-any.whl", hash = "sha256:162dc5d16edb77d8f1ff45af251cb9c234f2c0fff6e86eedd24cf04158177804", size = 1986, upload-time = "2025-06-12T17:45:50.19Z" },
 ]
 
 [[package]]
@@ -272,6 +294,17 @@ sdist = { url = "https://files.pythonhosted.org/packages/ce/20/08dfcd9c983f6a6f4
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8b/0c/9d30a4ebeb6db2b25a841afbb80f6ef9a854fc3b41be131d249a977b4959/starlette-0.46.2-py3-none-any.whl", hash = "sha256:595633ce89f8ffa71a015caed34a5b2dc1c0cdb3f0f1fbd1e69339cf2abeec35", size = 72037, upload-time = "2025-04-13T13:56:16.21Z" },
 ]
+
+[[package]]
+name = "test"
+version = "0.1.0"
+source = { virtual = "test" }
+dependencies = [
+    { name = "ost-skg-if-api-tools" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "ost-skg-if-api-tools", specifier = ">=0.1.0" }]
 
 [[package]]
 name = "toml"

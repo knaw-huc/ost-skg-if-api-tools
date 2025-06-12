@@ -1,0 +1,94 @@
+extension: service
+skg-if-api:
+  +tag-service:
+    name: Service
+    description: boe boe bla bla we maken domo vla
+  +path-service:
+    '/services/{local_identifier}':
+      get:
+        tags:
+            - Service
+        summary: Get service by id
+        description: |
+            Get single `service`. See definition in SKG-IF extension [Service](https://skg-if.github.io/..) ( entity_type:service ).
+        operationId: getServiceById
+        parameters:
+          - $ref : '#/components/parameters/localIdPathParam'
+        responses:
+          '200':
+            description: Success
+            content:
+              # not 'application/json-ld' to be compatible with StopLight PRISM tool
+              application/json: 
+                schema:
+                  allOf:
+                    - $ref: "#/components/schemas/JsonLdCtx"
+                    - $ref: "#/components/schemas/Service"
+  +path-services:
+    '/services':
+      get:
+        tags:
+            - Service
+        summary: Get list of service 
+        operationId: getServices
+        description: |
+            Get a list of `service`.
+        parameters:    
+          - $ref : '#/components/parameters/filterQueryParam'
+        responses:
+          '200':
+            description: Success
+            content:
+              application/json:
+                schema:
+                  properties:
+                    meta:
+                      type: object
+                      $ref: '#/components/schemas/Meta'
+                    results:
+                      type: array
+                      items:     
+                        $ref: '#/components/schemas/Service'
+                  required: [ "meta", "results" ]                       
+  +schema-service:
+    Service:
+      type: object
+      title: 'Service'
+      description:  "`service` object. See definition in SKG-IF [Service](https://skg-if.github.io/...) ( entity_type:service )."
+      allOf:
+        - $ref: "#/components/schemas/Entity"
+        - type: object
+          required: [
+            "local_identifier","entity_type","product_type"
+          ]        
+          properties:
+            entity_type:
+              default: "service"
+              type: string
+              x-faker:
+                helpers.arrayElement: [["service"]]
+            identifiers:
+              type: array
+              items:
+                properties:
+                  scheme: 
+                    type: string
+                    x-faker: 
+                      helpers.arrayElement: [["url"]]
+                  value: 
+                    type: string
+                    x-faker:
+                      fake : ['{{internet.url}}/record/{{random.alphaNumeric(8)}}']
+  ~schema-venue:
+    Venue:
+      allOf:
+        -
+        - type: object
+          properties:
+            type:
+              ~enum: portal
+            +services:
+              type: array
+              items:
+                $ref: '#/components/schemas/Service'
+

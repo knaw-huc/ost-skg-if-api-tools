@@ -1,0 +1,88 @@
+extension: ra-skg
+skg-if-api:
+  +schema-ra_metric:
+    ra_metric:
+      type: object
+      description: 'The information about the provided metric'
+      properties:
+        ra_metric:
+          oneOf:
+            - $ref: '#/components/schemas/ra_scalar_metric'
+            - $ref: '#/components/schemas/ra_badge_metric'
+        ra_provider:
+          type: string
+          description: 'An Agent providing the metric.'
+          example: "agent_2"
+        description:
+          type: string
+          description: 'A description of the metric.'
+          example: "The total number of citations received by the article in consideration. Citations and article metadata required to calculate the particular indicator are gathered by OpenCitations Index and OpenCitations Meta."
+  +schema-ra_scalar_metric:
+    ra_scalar_metric:
+      type: object
+      description: 'Scalar indicates something countable (e.g., a citation count)'
+      required:
+        - ra_measure
+        - ra_value
+      properties:
+        ra_measure:
+          description: 'An object representing the scalar and its meaning'
+          $ref: '#/components/schemas/ra_measure_or_category'
+        ra_value:
+          type: number
+          example: 125.0
+  +schema-ra_badge_metric:
+    ra_badge_metric:
+      type: object
+      description: 'Badges indicate a property or claim the Research product exhibits'
+      required:
+        - ra_category
+      properties:
+        ra_category:
+          description: 'An object representing the badge and its meaning'
+          $ref: '#/components/schemas/ra_measure_or_category'
+  +schema-ra_measure_or_category:        
+    ra_measure_or_category:
+      type: object
+      properties:
+        class:
+          type: string
+          description: 'URI of the class (e.g., in an ontology) that defines this metric.'
+          format: uri
+          example: "http://www.wikidata.org/entity/Q5122404"
+        labels:
+          type: object
+          description: 'Multilingual labels for the metric; keys are language codes (ISO-639-1) or "none".'
+          patternProperties:
+            "^([a-z]{2}|none)$":
+              type: array
+              items:
+                type: string
+        defined_in:
+          type: string
+          description: 'URI of the schema or vocabulary where the metric is defined.'
+          format: uri
+          example: "http://www.wikidata.org/"
+  ~schema-Product:
+    Product:
+      allOf:
+        -
+        - type: object
+          properties:
+            +ra_metrics:
+              type: array
+              description: 'A collection of metrics available for a Research product.'
+              items:
+                $ref: '#/components/schemas/ra_metric'
+  ~schema-Person:
+    Person:
+      allOf:
+        -
+        - type: object
+          properties:
+            +ra_metrics:
+              type: array
+              description: 'A collection of metrics available for the Research products of a Person.'
+              items:
+                $ref: '#/components/schemas/ra_metric'
+
