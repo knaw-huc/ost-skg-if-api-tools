@@ -1,5 +1,5 @@
 [project]
-name = "skgif-spec-merger"
+name = "ost-skg-if-api-tools"
 version = "0.1.0"
 description = "This project merges multiple OpenAPI specifications extensions into a single core specification for SKG IF."
 readme = "README.md"
