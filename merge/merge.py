@@ -1,6 +1,5 @@
 import sys
 import json
-from pprint import pprint
 from yaml import dump, safe_load, YAMLError
 try:
     from yaml import CLoader as Loader, CDumper as Dumper
