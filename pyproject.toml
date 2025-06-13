@@ -21,3 +21,12 @@ dev = [
 members = [
     "test",
 ]
+
+[tool.uv]
+package = true
+
+[project.scripts]
+merge = "merge.merge:main"
+
+[tool.setuptools.package-data]
+"merge" = ["API/**/*"]
