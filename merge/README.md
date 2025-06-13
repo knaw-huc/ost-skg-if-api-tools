@@ -1,5 +1,32 @@
 # OpenAPI merge spec
 
+### Installation
+```shell
+uv add ost-skg-if-api-tools
+#or
+pip install ost-skg-if-api-tools
+```
+
+### Usage
+1. as a command line tool:
+```shell
+source .venv/bin/activate
+merge merge/API/core/skg-if-api.yaml merge/API/ext/service.yaml
+```
+**there can be more than one extension file, e.g. `merge/API/ext/service.yaml merge/API/ext/another.yaml`**
+2. as a python module:
+```python
+from merge.merge import load_and_merge
+load_and_merge(
+    core_file="merge/API/core/skg-if-api.yaml",
+    ext_files=["merge/API/ext/service.yaml", "merge/API/ext/another.yaml"]
+)
+```
+3. as a web service:
+TBD
+
+
+
 Specify what should be changed in/added to the SKG-IF OpenAPI YAML, which supports the core SKG-IF data model, for an extension. RThis document will use an example __server__ extension.
 
 ## Header
