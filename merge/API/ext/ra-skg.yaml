@@ -63,6 +63,47 @@ skg-if-api:
           description: 'URI of the schema or vocabulary where the metric is defined.'
           format: uri
           example: "http://www.wikidata.org/"
+  +schema-ra_profile:
+    ra_profile:
+      type: object
+      properties:
+        title:
+          type: string
+          description: 'The title of the narrative profile.'
+          example: 'John Doe CV'
+        ra_sections:
+          type: array
+          description: 'Sections composing the narrative.'
+          items:
+            $ref: '#/components/schemas/ra_section'
+  +schema-ra_section:
+    ra_section:
+        type: object
+        properties:
+          title:
+            type: string
+            description: 'Title of the section'
+            example: 'Ethical AI Models in Biochemical Research'
+          description:
+            type: string
+            description: 'Description, e.g. containing guidelines, of what is expected as content of the section'
+            example: 'Maximum 1000 words'
+          ra_content:
+            type: string
+            description: 'Content of the section'
+            example: 'As artificial intelligence (AI) becomes integral to ...'
+          cites:
+            type: array
+            description: 'Research products the section is referring to.'
+            items:
+              type: string
+              example: 'product_1'
+          ra_template:
+            type: string
+            description: 'The URL of the template that is used to create the CV.'
+            format: uri
+            example: 'https://example.com/template/cv'
+
   ~schema-Product:
     Product:
       allOf:
@@ -85,4 +126,10 @@ skg-if-api:
               description: 'A collection of metrics available for the Research products of a Person.'
               items:
                 $ref: '#/components/schemas/ra_metric'
+            +ra_profiles:
+                type: array
+                description: 'A collection of narrative profiles for an Agent that can support an evaluation.'
+                items:
+                  $ref: '#/components/schemas/ra_profile'
+
 
