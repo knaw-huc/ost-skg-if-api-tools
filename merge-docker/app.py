@@ -13,7 +13,7 @@ from fastapi.routing import APIRouter
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi import Query
 # from merge.merge import merge_ext_to_core
-from ost_skg_if_api_tools.merge import merge_ext_to_core
+from merge.merge import merge_ext_to_core
 
 config = toml.load("config.toml")
 api_core_folder: str = config["api"]["core_folder"]
