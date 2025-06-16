@@ -1,13 +1,43 @@
 # ost-skg-if-api-tools
 OSTrails - SKG IF - API - tools
 
-### How to run
-1. Clone the repository
-2. `docker build -t skgif:test .`
-3. `docker compose up -d`
-4. Visit `http://localhost:8000/api/ver` to see the nginx welcome page.
-5. Visit `http://localhost:8000/api/ver/1.1.3/skg-if-api.yaml?ext=service` to download the merged yaml file.
-6. (Optional) Visit `http://localhost:8000/api/ver/1.1.3/skg-if-api.yaml?ext=service&nocache=yes` to download the merged yaml file with cache disabled.
+### Installation
+
+There are multiple ways to install/build the merge tool. It can be used as a command line tool, a python module or a web service through a docker image.
+
+1. As a python package:
+```shell
+uv add ost-skg-if-api-tools
+#or
+pip install ost-skg-if-api-tools
+```
+2. Build as a docker image:
+```shell
+cd merge-docker
+docker build -t skgif:test .
+```
+
+### Usage
+1. as a command line tool:
+```shell
+source .venv/bin/activate
+merge merge/API/core/skg-if-api.yaml merge/API/ext/service.yaml
+```
+**there can be more than one extension file, e.g. `merge/API/ext/service.yaml merge/API/ext/another.yaml`**
+2. as a python module:
+```python
+from merge.merge import load_and_merge
+load_and_merge(
+    core_file="merge/API/core/skg-if-api.yaml",
+    ext_files=["merge/API/ext/service.yaml", "merge/API/ext/another.yaml"]
+)
+```
+3. as a web service:
+1. Build the docker image and run the docker compose file:
+2`docker compose up -d`
+3 Visit `http://localhost:8000/api/ver` to see the nginx welcome page.
+4Visit `http://localhost:8000/api/ver/1.1.3/skg-if-api.yaml?ext=service` to download the merged yaml file.
+5. (Optional) Visit `http://localhost:8000/api/ver/1.1.3/skg-if-api.yaml?ext=service&nocache=yes` to download the merged yaml file with cache disabled.
 
 The stack will be up and running with `fastapi` on port `8000:8000` and `nginx` on port `8080:80`
 

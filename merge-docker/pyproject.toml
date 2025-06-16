@@ -1,5 +1,5 @@
 [project]
-name = "ost-skg-if-api-tools"
+name = "ost-skg-if-api-tools-docker"
 version = "0.1.0"
 description = "This project merges multiple OpenAPI specifications extensions into a single core specification for SKG IF."
 readme = "README.md"
@@ -10,6 +10,7 @@ dependencies = [
     "pyyaml>=6.0.2",
     "toml>=0.10.2",
     "uvicorn>=0.34.2",
+    "ost-skg-if-api-tools>=0.1.4"
 ]
 
 [dependency-groups]
